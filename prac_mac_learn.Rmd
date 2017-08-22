@@ -1,0 +1,113 @@
+---
+title: "Practical Machine Learning Assignement"
+author: "Mark Odejobi"
+date: "August 7, 2017"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      echo=TRUE, warning=FALSE, message=FALSE)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(caret)
+library(rattle)
+if(!file.exists("./Coursera/machine_learning")){dir.create("./Coursera/machine_learning")}
+
+```
+
+##Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. 
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, the goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the manner in which participants did the exercise; the dependant variable os the "classe" variable in the training set.
+
+##Data
+
+The following chunk of code provides an overview on how the data was downloaded and loaded.
+
+```{r read_data, echo=TRUE} 
+if(!file.exists("H:/My Documents/Coursera/machine_learning/pml_training.csv"))
+  {download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",
+              destfile = "H:/My Documents/Coursera/machine_learning/pml_training.csv")
+  }
+              
+train <- read.csv("H:/My Documents/Coursera/machine_learning/pml_training.csv", header = TRUE, na.strings=c("","NA","#DIV/0!"))
+
+if(!file.exists("H:/My Documents/Coursera/machine_learning/pml_testing.csv")){download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",
+              destfile = "Coursera/machine_learning/pml_testing.csv")
+  }
+              
+final_test <- read.csv("H:/My Documents/Coursera/machine_learning/pml_training.csv", header = TRUE
+                       ,na.strings=c("","NA","#DIV/0!"))
+```
+
+The next chunk of code allows us to take a first glance at the data.
+
+```{r view_data, echo=TRUE}
+str(train)
+qplot(data = train, classe)
+```
+
+Now we want to abalyse the quality of the data by looking at columns with an excessive number of missing values.
+
+```{r missing_data, echo=TRUE}
+for(i in c(8:ncol(train)-1)){train[, i] = as.numeric(as.character(train[, i]))}
+missing_data <- colSums(is.na(train))
+qplot(data = data.frame(missing_data), missing_data)
+```
+
+We can see from the plot that we have a number of variables with too many NA values. The following code will help us remove those columns with NA values
+
+```{r remove_missing, echo=TRUE}
+
+filter_data <- names(missing_data[missing_data > 0])
+new_training <- train[, !(colnames(train) %in% filter_data)]
+```
+
+
+##Analysis
+
+###Split data into test and testing data
+
+```{r split_data, echo=TRUE}
+set.seed(100)
+inTrain <- createDataPartition(y=new_training$classe, p=0.7, list=FALSE )
+testing <- new_training[-inTrain, ]
+training <- new_training[inTrain, ]
+
+```
+
+
+###Random Forest
+
+This method constructs a number of decision trees. I did not fit a decision tee because it is well known that random forests corrects for decision tree's habit of overfitting to the training set.
+
+Let's first fot a random forest to the training model and review the output
+
+```{r modfit, echo=TRUE}
+set.seed(1234)
+moddt <- train(classe ~ ., data = training, method = "rf")
+moddt$finalModel
+
+```
+
+
+Let's now use our model to predict values for the test set and use a confusionmatrix to evaluate the accuracy.
+
+```{r modpred, echo=TRUE}
+preddt <- predict(moddt, newdata = testing)
+confusionMatrix(preddt, testing$classe)
+```
+
+
+##Conclusion
+
+
+We can conclude that with an accuracy of `r confusionMatrix(preddt, testing$classe)$overall[1]`, that the model is good.
